@@ -73,14 +73,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
     async def async_step_dhcp(self, discovery_info: dhcp.DhcpServiceInfo) -> FlowResult:
         """Handle discovery via dhcp."""
-        _LOGGER.error("Swidget device found via DHCP: %s", discovery_info)
+        _LOGGER.debug("Swidget device found via DHCP: %s", discovery_info)
         return await self._async_handle_discovery(
             discovery_info.ip, discovery_info.macaddress
         )
 
     async def async_step_ssdp(self, discovery_info: ssdp.SsdpServiceInfo) -> FlowResult:
         """Handle discovery via SSDP."""
-        _LOGGER.error("Swidget device found via SSDP: %s", discovery_info)
+        _LOGGER.debug("Swidget device found via SSDP: %s", discovery_info)
         discovered_ip = urlparse(discovery_info.ssdp_headers["location"]).hostname
         discovered_mac = format_mac(discovery_info.ssdp_headers["USN"].split("-")[-1])
         return await self._async_handle_discovery(
@@ -109,7 +109,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(
             dr.format_mac(mac), raise_on_progress=True
         )
-        _LOGGER.error("SWIDGET: Moving to discovery_confirm()")
+        _LOGGER.debug("SWIDGET: Moving to discovery_confirm()")
         return await self.async_step_discovery_confirm()
 
 
@@ -119,8 +119,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Confirm discovery."""
         assert self._discovered_device is not None
         if user_input is not None:
-            _LOGGER.error(f"async_step_discovery_confirm() {user_input}")
-            _LOGGER.error(f"discovered_device {self._discovered_device}")
+            _LOGGER.debug("async_step_discovery_confirm()")
+            _LOGGER.debug(f"discovered_device {self._discovered_device}")
             user_input['host'] = self._discovered_device.host
             info = await validate_input(self.hass, user_input)
             return self.async_create_entry(title=info["title"], data=user_input)
@@ -179,8 +179,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # mac = user_input[CONF_DEVICE]
             # await self.async_set_unique_id(mac, raise_on_progress=False)
             # return self._async_create_entry_from_device(self._discovered_devices[mac])
-            _LOGGER.error(f"user-Input: {user_input}")
-            _LOGGER.error(f"discovered devices: {self._discovered_devices[user_input['device']].__dict__}")
+            _LOGGER.debug("Picked device %s", user_input.get("device"))
+            _LOGGER.debug(f"discovered devices: {self._discovered_devices[user_input['device']].__dict__}")
             user_input['host'] = self._discovered_devices[user_input['device']].host
             info = await validate_input(self.hass, user_input)
             return self.async_create_entry(title=info["title"], data=user_input)
@@ -189,9 +189,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         configured_devices = {
             entry.unique_id for entry in self._async_current_entries()
         }
-        _LOGGER.error(f"Configured Devices: {self._async_current_entries()}")
+        _LOGGER.debug(f"Configured Devices: {self._async_current_entries()}")
         self._discovered_devices = await async_discover_devices(self.hass)
-        _LOGGER.error(f"Discovered Devices: {self._discovered_devices}")
+        _LOGGER.debug(f"Discovered Devices: {self._discovered_devices}")
         devices_name = {
             mac: f"{device.friendly_name} ({device.host})"
             for mac, device in self._discovered_devices.items()

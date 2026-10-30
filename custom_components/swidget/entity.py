@@ -43,6 +43,11 @@ class CoordinatedSwidgetEntity(CoordinatorEntity[SwidgetDataUpdateCoordinator]):
         self._attr_unique_id = self.device.id
 
     @property
+    def available(self) -> bool:
+        """Return False while the websocket to the device is down."""
+        return super().available and self.device.connected
+
+    @property
     def device_info(self) -> DeviceInfo:
         """Return information about the device."""
         return DeviceInfo(

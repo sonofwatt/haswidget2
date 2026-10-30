@@ -35,7 +35,7 @@ class SwidgetProtocol(ssdp.SimpleServiceDiscoveryProtocol):
         mac_address = headers["USN"].split("-")[-1]
         ip_address = urlparse(headers["LOCATION"]).hostname
         if headers["ST"] == SWIDGET_ST:
-            _LOGGER.error(headers["SERVER"])
+            _LOGGER.debug(headers["SERVER"])
             device_type = headers["SERVER"].split(" ")[1].split("+")[0]
             insert_type = headers["SERVER"].split(" ")[1].split("+")[1].split("/")[0]
             friendly_name = headers["SERVER"].split("/")[2].strip('"')
@@ -70,7 +70,10 @@ async def discover_single(host: str, password: str, ssl: bool) -> SwidgetDevice:
     :return: Object for querying/controlling found device.
     """
     swidget_device = SwidgetDevice(host, password, ssl)
-    await swidget_device.get_summary()
+    try:
+        await swidget_device.get_summary()
+    finally:
+        await swidget_device.close()
     device_type = swidget_device.device_type
     device_class = _get_device_class(device_type)
     dev = device_class(host, password, False)

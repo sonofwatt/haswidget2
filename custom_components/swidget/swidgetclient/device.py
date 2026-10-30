@@ -34,25 +34,57 @@ class SwidgetDevice:
         connector = TCPConnector(force_close=True)
         self._session = ClientSession(headers=headers, connector=connector)
         self._last_update = None
+        self._update_listeners = []
+        self._websocket = None
         if self.use_websockets:
             self._websocket = SwidgetWebsocket(
                 host=self.ip_address,
                 secret_key=self.secret_key,
                 callback=self.message_callback,
-                session=self._session)
+                session=self._session,
+                connection_callback=self.connection_callback)
 
+    @property
+    def connected(self) -> bool:
+        """Return True when the device can be reached for updates."""
+        return self._websocket is None or self._websocket.connected
 
-    async def stop(self):
-        """Stop the websocket."""
+    def add_update_listener(self, listener):
+        """Call listener() after every state or connection change; returns a remover."""
+        self._update_listeners.append(listener)
+        return lambda: self._update_listeners.remove(listener)
+
+    def _notify_listeners(self):
+        for listener in list(self._update_listeners):
+            listener()
+
+    async def close(self):
+        """Stop the websocket and close the HTTP session."""
         if self._websocket is not None:
-            await self._websocket.stop()
+            await self._websocket.close()
+        await self._session.close()
 
     async def message_callback(self, message):
         """Entrypoint for a websocket callback"""
-        if message["request_id"] == "summary":
+        request_id = message.get("request_id")
+        if request_id == "summary":
             await self.process_summary(message)
-        elif message["request_id"] == "state" or message["request_id"] == "DYNAMIC_UPDATE" or message["request_id"] == "command":
+        elif request_id in ("state", "DYNAMIC_UPDATE", "command"):
             await self.process_state(message)
+        else:
+            _LOGGER.debug("Swidget %s: ignoring message: %s", self.ip_address, message)
+            return
+        self._notify_listeners()
+
+    async def connection_callback(self, connected):
+        """Re-read the device after every (re)connect; updates sent while offline were missed."""
+        if connected:
+            try:
+                await self.get_state()
+            except Exception as error:  # pylint: disable=broad-except
+                _LOGGER.warning("Swidget %s: could not refresh state after connecting: %s",
+                                self.ip_address, type(error).__name__)
+        self._notify_listeners()
 
     async def get_summary(self):
         """Get a summary of the device over HTTP"""
@@ -86,7 +118,7 @@ class SwidgetDevice:
 
     async def process_state(self, state):
         """ Process any information about the state of the device or insert"""
-        _LOGGER.error(f"Processing state: {state}")
+        _LOGGER.debug("Swidget %s: processing state: %s", self.ip_address, state)
         # State is not always in the state (during callback)
         try:
             self.rssi = state["connection"]["rssi"]
@@ -98,22 +130,12 @@ class SwidgetDevice:
 
         """
         for assembly in self.assemblies:
-            _LOGGER.error(assembly)
             for id, component in self.assemblies[assembly].components.items():
-                _LOGGER.error(f"id:{id}   component: {component.__dict__}")
-                _LOGGER.error(f"component.function: {component.functions}")
                 try:
-                    _LOGGER.error(f"Setting State: {state[assembly]['components'][id]}")
                     component.functions.update(state[assembly]["components"][id])
-                except:
+                except (KeyError, TypeError):
                     pass
         self._last_update = int(time.time())
-        _LOGGER.error(f"Finished getting state: {self.__dict__}")
-        a = self.assemblies['host'].__dict__
-        b = self.assemblies['insert'].__dict__
-        _LOGGER.error(f"Finished getting state: {self.__dict__}")
-        _LOGGER.error(f"Finished getting state: {a}")
-        _LOGGER.error(f"Finished getting state: {b}")
 
     async def get_friendly_name(self):
         try:
@@ -150,7 +172,6 @@ class SwidgetDevice:
                                "request_id": "command",
                                "payload": data
                                })
-            _LOGGER.error(f"About to send data: {data}")
             await self._websocket.send_str(data)
         else:
             async with self._session.post(

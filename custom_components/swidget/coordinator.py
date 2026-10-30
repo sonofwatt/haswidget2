@@ -26,18 +26,19 @@ class SwidgetDataUpdateCoordinator(DataUpdateCoordinator):
     ) -> None:
         """Initialize DataUpdateCoordinator to gather data for specific device"""
         self.device = device
-        update_interval = timedelta(seconds=0.5)
         super().__init__(
             hass,
             _LOGGER,
             name=device.ip_address,
-            update_interval=update_interval,
+            # No polling: the websocket pushes every change to the listener below
+            update_interval=None,
             # We don't want an immediate refresh since the device
             # takes a moment to reflect the state change
             request_refresh_debouncer=Debouncer(
                 hass, _LOGGER, cooldown=REQUEST_REFRESH_DELAY, immediate=False
             ),
         )
+        self.remove_device_listener = device.add_update_listener(self.async_update_listeners)
 
     async def async_request_refresh_without_children(self) -> None:
         """Request a refresh without the children."""
