@@ -33,6 +33,14 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     }
 )
 
+# An empty password keeps the current one
+STEP_RECONFIGURE_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_HOST): str,
+        vol.Optional("password"): str,
+    }
+)
+
 
 class PlaceholderHub:
     """Placeholder class to make tests pass.
@@ -55,12 +63,14 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
     # Return info that you want to store in the config entry.
+    d = SwidgetDevice(data['host'], data['password'], False)
     try:
-        d = SwidgetDevice(data['host'], data['password'], False)
         await d.update()
-        return {"title": f"{d.friendly_name}"}
-    except:
-        raise CannotConnect
+    except Exception as ex:
+        raise CannotConnect from ex
+    finally:
+        await d.close()
+    return {"title": f"{d.friendly_name}", "mac": d.mac_address}
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Swidget."""
@@ -169,6 +179,35 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=STEP_USER_DATA_SCHEMA,
                 errors=errors
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Change the host or access key, keeping the entities."""
+        entry = self._get_reconfigure_entry()
+        errors = {}
+        if user_input is not None:
+            data = {
+                CONF_HOST: user_input[CONF_HOST],
+                "password": user_input.get("password") or entry.data["password"],
+            }
+            try:
+                info = await validate_input(self.hass, data)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            else:
+                if entry.unique_id and dr.format_mac(info["mac"]) != entry.unique_id:
+                    return self.async_abort(reason="wrong_device")
+                return self.async_update_reload_and_abort(entry, data_updates=data)
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                STEP_RECONFIGURE_DATA_SCHEMA, {CONF_HOST: entry.data[CONF_HOST]}
+            ),
+            description_placeholders={"name": entry.title},
+            errors=errors,
         )
 
     async def async_step_pick_device(

@@ -17,6 +17,13 @@
       "discovery_confirm": {
         "description": "Do you want to setup {name} ({host})?",
         "password": "[%key:common::config_flow::data::password%]"
+      },
+      "reconfigure": {
+        "description": "Change the address or access key of {name}. Leave the access key empty to keep the current one.",
+        "data": {
+          "host": "Host",
+          "password": "Access key"
+        }
       }
     },
     "error": {
@@ -24,7 +31,9 @@
     },
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
-      "no_devices_found": "[%key:common::config_flow::abort::no_devices_found%]"
+      "no_devices_found": "[%key:common::config_flow::abort::no_devices_found%]",
+      "reconfigure_successful": "[%key:common::config_flow::abort::reconfigure_successful%]",
+      "wrong_device": "That address belongs to a different Swidget device."
     }
   }
 }

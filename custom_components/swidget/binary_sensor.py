@@ -15,9 +15,6 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
-    CONCENTRATION_PARTS_PER_BILLION,
-    CONCENTRATION_PARTS_PER_MILLION,
     PERCENTAGE,
     SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
 
@@ -102,7 +99,7 @@ class SwidgetBinarySensor(CoordinatedSwidgetEntity, SensorEntity):
         super().__init__(device, coordinator)
         self.entity_description = description
         self._attr_unique_id = (
-            f"{self.device}_{self.entity_description.key}"
+            f"{self._unique_id_prefix}_{self.entity_description.key}"
         )
 
     @property

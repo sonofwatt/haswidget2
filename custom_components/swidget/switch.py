@@ -75,7 +75,7 @@ class SwidgetPlugSwitch(CoordinatedSwidgetEntity, SwitchEntity):
         self._attr_name = "Controlled Outlet"
         # self.entity_id = f"{self.device}_controlled_outlet"
         self._attr_unique_id = (
-            f"{self.device}_controlled_outlet"
+            f"{self._unique_id_prefix}_controlled_outlet"
         )
 
     @async_refresh_after
@@ -109,7 +109,7 @@ class SwidgetUSBSwitch(CoordinatedSwidgetEntity, SwitchEntity):
         super().__init__(device, coordinator)
         self._attr_name = "USB Outlet"
         self._attr_unique_id = (
-            f"{self.device}_usb_outlet"
+            f"{self._unique_id_prefix}_usb_outlet"
         )
 
     @async_refresh_after

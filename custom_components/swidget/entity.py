@@ -30,6 +30,11 @@ def async_refresh_after(
     return _async_wrap
 
 
+def unique_id_prefix(device: SwidgetDevice) -> str:
+    """Return the start of every entity unique_id: the MAC, which survives IP changes."""
+    return dr.format_mac(device.mac_address)
+
+
 class CoordinatedSwidgetEntity(CoordinatorEntity[SwidgetDataUpdateCoordinator]):
     """Common base class for all coordinated tplink entities."""
 
@@ -41,6 +46,7 @@ class CoordinatedSwidgetEntity(CoordinatorEntity[SwidgetDataUpdateCoordinator]):
         self.device: SwidgetDevice = device
         self._attr_name = self.device.mac_address.replace(":", "").upper()
         self._attr_unique_id = self.device.id
+        self._unique_id_prefix = unique_id_prefix(device)
 
     @property
     def available(self) -> bool:

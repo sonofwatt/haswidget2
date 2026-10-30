@@ -70,7 +70,7 @@ class SwidgetSmartDimmer(CoordinatedSwidgetEntity, LightEntity):
         # For backwards compat with pyHS100
         self._attr_name = "Dimmer"
         self._attr_unique_id = (
-            f"{self.device}_dimmer"
+            f"{self._unique_id_prefix}_dimmer"
         )
 
     @async_refresh_after

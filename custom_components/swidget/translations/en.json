@@ -3,7 +3,9 @@
         "abort": {
             "already_configured": "Device is already configured",
             "no_devices_found": "No devices found on the network",
-            "single_instance_allowed": "Already configured. Only a single configuration possible."
+            "single_instance_allowed": "Already configured. Only a single configuration possible.",
+            "reconfigure_successful": "Re-configuration was successful",
+            "wrong_device": "That address belongs to a different Swidget device."
         },
         "error": {
             "cannot_connect": "Failed to connect"
@@ -30,6 +32,13 @@
                     "password": "Password"
                 },
                 "description": "If you leave the host empty, discovery will be used to find devices."
+            },
+            "reconfigure": {
+                "description": "Change the address or access key of {name}. Leave the access key empty to keep the current one.",
+                "data": {
+                    "host": "Host",
+                    "password": "Access key"
+                }
             }
         }
     }

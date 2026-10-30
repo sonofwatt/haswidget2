@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 import logging
+import re
 
 from .swidgetclient.device import SwidgetDevice
 from .swidgetclient.exceptions import SwidgetException
@@ -22,14 +23,19 @@ from homeassistant.const import (
 from homeassistant.core import callback, HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN, PLATFORMS
 from .coordinator import SwidgetDataUpdateCoordinator
+from .entity import unique_id_prefix
 
 _LOGGER = logging.getLogger(__name__)
 DISCOVERY_INTERVAL = timedelta(minutes=15)
+# Before 0.0.4, unique_ids started with the device repr, which holds the IP:
+# "<pana_switch model HK_PICO_1 at 172.16.107.156>_controlled_outlet"
+LEGACY_UNIQUE_ID = re.compile(r"^<.* at (?P<host>[^ >]+)(?: - update\(\) needed)?>_(?P<key>.+)$")
 
 
 @callback
@@ -87,6 +93,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except SwidgetException as ex:
         raise ConfigEntryNotReady from ex
 
+    await async_migrate_unique_ids(hass, entry, device)
     # session = async_get_clientsession(hass)
     hass.data[DOMAIN][entry.entry_id] = SwidgetDataUpdateCoordinator(hass, device)
     # hass.config_entries.async_setup_platforms(entry, PLATFORMS)
@@ -96,6 +103,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass, device._websocket.listen(), f"swidget websocket {entry.data['host']}"
     )
     return True
+
+
+async def async_migrate_unique_ids(
+    hass: HomeAssistant, entry: ConfigEntry, device: SwidgetDevice
+) -> None:
+    """Move entities from IP-based to MAC-based unique_ids, keeping their entity_ids.
+
+    Only entities of the current host move. Leftovers from an older IP stay as they are.
+    """
+    ent_reg = er.async_get(hass)
+    prefix = unique_id_prefix(device)
+
+    @callback
+    def _migrate(entity_entry: er.RegistryEntry) -> dict[str, Any] | None:
+        match = LEGACY_UNIQUE_ID.match(entity_entry.unique_id)
+        if match is None or match["host"] != device.ip_address:
+            return None
+        new_unique_id = f"{prefix}_{match['key']}"
+        if existing := ent_reg.async_get_entity_id(entity_entry.domain, DOMAIN, new_unique_id):
+            _LOGGER.warning(
+                "Swidget %s: not migrating %s, %s already has unique_id %s",
+                device.ip_address, entity_entry.entity_id, existing, new_unique_id,
+            )
+            return None
+        _LOGGER.info(
+            "Swidget %s: %s now has unique_id %s",
+            device.ip_address, entity_entry.entity_id, new_unique_id,
+        )
+        return {"new_unique_id": new_unique_id}
+
+    await er.async_migrate_entries(hass, entry.entry_id, _migrate)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
