@@ -161,6 +161,26 @@ class SwidgetDevice:
         data = json.dumps({"type":"config","request_id":"abcd", "payload": payload})
         await self._websocket.send_str(data)
 
+    async def update_device_config(self, config: dict):
+        """Merge settings into the device config, as its web page does (e.g. {"led": {"lightSuppress": False}})."""
+        async with self._session.post(
+            url=f"https://{self.ip_address}/api/v1/device_config",
+            ssl=self.ssl,
+            data=json.dumps(config),
+        ) as response:
+            if response.status != 200:
+                raise SwidgetException(f"device_config update failed with HTTP {response.status}")
+
+    async def set_indicator_light(self, show_host_state: bool | None = None, brightness: int | None = None):
+        """Set the indicator light: whether it shows the host's on/off state, and its brightness (0-100)."""
+        led = {}
+        if show_host_state is not None:
+            led["lightSuppress"] = not show_host_state
+        if brightness is not None:
+            led["brightness"] = brightness
+        if led:
+            await self.update_device_config({"led": led})
+
     async def send_command(
         self, assembly: str, component: str, function: str, command: dict
     ):

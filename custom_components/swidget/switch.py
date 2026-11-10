@@ -33,6 +33,15 @@ SWIDGET_SET_COUNTDOWN_TIMER_SCHEMA = cv.make_entity_service_schema(
         DURATION: VAL
     }
 )
+SHOW_HOST_STATE = "show_host_state"
+BRIGHTNESS = "brightness"
+SERVICE_SWIDGET_SET_INDICATOR_LIGHT = "set_indicator_light"
+SWIDGET_SET_INDICATOR_LIGHT_SCHEMA = cv.make_entity_service_schema(
+    {
+        vol.Optional(SHOW_HOST_STATE): cv.boolean,
+        vol.Optional(BRIGHTNESS): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+    }
+)
 
 
 async def async_setup_entry(
@@ -53,8 +62,13 @@ async def async_setup_entry(
         entities.append(SwidgetUSBSwitch(cast(SwidgetOutlet, coordinator.device), coordinator))
     async_add_entities(entities)
 
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service(
+        SERVICE_SWIDGET_SET_INDICATOR_LIGHT,
+        SWIDGET_SET_INDICATOR_LIGHT_SCHEMA,
+        "set_indicator_light",
+    )
     if coordinator.device.device_type == "pana_switch":
-        platform = entity_platform.async_get_current_platform()
         platform.async_register_entity_service(
             SERVICE_SWIDGET_SET_COUNTDOWN_TIMER,
             SWIDGET_SET_COUNTDOWN_TIMER_SCHEMA,
@@ -95,6 +109,11 @@ class SwidgetPlugSwitch(CoordinatedSwidgetEntity, SwitchEntity):
     async def set_countdown_timer(self, **kwargs: Any) -> None:
         if DURATION in kwargs:
             await self.device.set_countdown_timer(kwargs[DURATION])
+
+    async def set_indicator_light(self, **kwargs: Any) -> None:
+        await self.device.set_indicator_light(
+            show_host_state=kwargs.get(SHOW_HOST_STATE), brightness=kwargs.get(BRIGHTNESS)
+        )
 
 
 class SwidgetUSBSwitch(CoordinatedSwidgetEntity, SwitchEntity):

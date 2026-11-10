@@ -14,18 +14,42 @@ set_default_brightness:
           min: 0
           max: 100
 
-set_timer_countdown:
-  name: Set a switch countdown timer
-  description: Set a switch countdown timer
+set_countdown_timer:
+  name: Set countdown timer
+  description: Start or replace the switch's own auto-off countdown (turns it on if it is off).
   target:
     entity:
       integration: swidget
       domain: switch
   fields:
-    seconds:
-      name: minutes
-      description: The time that the switch will be on for.
+    duration:
+      name: Duration
+      description: Minutes until the switch turns itself off.
+      required: true
       selector:
         number:
           min: 1
           max: 1440
+          unit_of_measurement: min
+
+set_indicator_light:
+  name: Set indicator light
+  description: Set the device's indicator light, as under Indicator Light on its own web page.
+  target:
+    entity:
+      integration: swidget
+      domain: switch
+  fields:
+    show_host_state:
+      name: Show host state
+      description: Light the indicator while the switch is on.
+      selector:
+        boolean:
+    brightness:
+      name: Brightness
+      description: Indicator brightness.
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
